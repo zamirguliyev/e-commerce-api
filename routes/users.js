@@ -1,0 +1,259 @@
+const express = require('express');
+const router = express.Router();
+const User = require('../models/User');
+const auth = require('../middleware/auth');
+
+
+// Get all users with pagination and search (admin only)
+router.get('/', auth, async (req, res) => {
+    try {
+        // Check if user is admin
+        const admin = await User.findById(req.user.user.id);
+        if (!admin.isAdmin) {
+            return res.status(403).json({ message: 'Access denied. Admin only.' });
+        }
+
+        // Pagination parameters
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        // Search parameters
+        const keyword = req.query.keyword || '';
+        const searchQuery = keyword ? {
+            $or: [
+                { username: { $regex: keyword, $options: 'i' } },
+                { email: { $regex: keyword, $options: 'i' } },
+                { name: { $regex: keyword, $options: 'i' } },
+                { surname: { $regex: keyword, $options: 'i' } }
+            ]
+        } : {};
+
+        // Get total count for pagination
+        const totalUsers = await User.countDocuments(searchQuery);
+        const totalPages = Math.ceil(totalUsers / limit);
+
+        // Get users with pagination and search
+        const users = await User.find(searchQuery)
+            .select('-password -refreshToken')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
+        // Format response
+        const formattedUsers = users.map(user => ({
+            id: user._id,
+            name: user.name,
+            surname: user.surname,
+            username: user.username,
+            email: user.email,
+            isAdmin: user.isAdmin,
+            status: user.status,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt
+        }));
+
+        res.json({
+            data: formattedUsers,
+            pagination: {
+                currentPage: page,
+                totalPages,
+                totalUsers,
+                hasNextPage: page < totalPages,
+                hasPrevPage: page > 1
+            }
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+/**
+ * @swagger
+ * /api/users/profile:
+ *   put:
+ *     summary: Update user's own profile
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               surname:
+ *                 type: string
+ *               username:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   $ref: '#/components/schemas/User'
+ *       400:
+ *         description: Username or email already exists
+ *       401:
+ *         description: Unauthorized
+ */
+
+// Update user's own profile
+router.put('/profile', auth, async (req, res) => {
+    try {
+        const { name, surname, username, email } = req.body;
+        const userId = req.user.user.id;
+
+        // Check if username is taken by another user
+        if (username) {
+            const existingUsername = await User.findOne({ 
+                username, 
+                _id: { $ne: userId } 
+            });
+            if (existingUsername) {
+                return res.status(400).json({ message: 'Username already exists' });
+            }
+        }
+
+        // Check if email is taken by another user
+        if (email) {
+            const existingEmail = await User.findOne({ 
+                email, 
+                _id: { $ne: userId } 
+            });
+            if (existingEmail) {
+                return res.status(400).json({ message: 'Email already exists' });
+            }
+        }
+
+        // Update user profile
+        const updateData = {};
+        if (name) updateData.name = name;
+        if (surname) updateData.surname = surname;
+        if (username) updateData.username = username;
+        if (email) updateData.email = email;
+
+        const user = await User.findByIdAndUpdate(
+            userId,
+            updateData,
+            { new: true }
+        ).select('-password -refreshToken');
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const userData = {
+            id: user._id,
+            name: user.name,
+            surname: user.surname,
+            username: user.username,
+            email: user.email,
+            isAdmin: user.isAdmin,
+            status: user.status,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt
+        };
+
+        res.json({ data: userData });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+/**
+ * @swagger
+ * /api/users/{id}/status:
+ *   patch:
+ *     summary: Update user status (admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - status
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive, banned]
+ *     responses:
+ *       200:
+ *         description: User status updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Access denied. Admin only.
+ *       404:
+ *         description: User not found
+ */
+
+// Update user status (admin only)
+router.patch('/:id/status', auth, async (req, res) => {
+    try {
+        // Check if user is admin
+        const admin = await User.findById(req.user.user.id);
+        if (!admin.isAdmin) {
+            return res.status(403).json({ message: 'Access denied. Admin only.' });
+        }
+
+        const { status } = req.body;
+        const user = await User.findByIdAndUpdate(
+            req.params.id,
+            { status },
+            { new: true }
+        ).select('-password -refreshToken');
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const userData = {
+            id: user._id,
+            name: user.name,
+            surname: user.surname,
+            username: user.username,
+            email: user.email,
+            isAdmin: user.isAdmin,
+            status: user.status,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt
+        };
+
+        res.json({ data: userData });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+module.exports = router; 
