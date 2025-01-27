@@ -8,6 +8,10 @@ A RESTful API built with Node.js, Express.js, and MongoDB for e-commerce applica
 - Refresh Token Mechanism
 - Role-based Authorization (Admin/User)
 - User Management
+- Product Management with Image Upload
+- Category Management
+- Shopping Basket
+- Wishlist
 - Swagger API Documentation
 - Pagination and Search Functionality
 
@@ -36,6 +40,11 @@ PORT=5000
 MONGODB_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret_key
 REFRESH_TOKEN_SECRET=your_refresh_token_secret
+```
+
+4. Create uploads directory:
+```bash
+mkdir uploads
 ```
 
 ## Running the Application
@@ -73,6 +82,34 @@ http://localhost:5000/api-docs
 - `PUT /api/users/profile` - Update user's own profile
 - `PATCH /api/users/:id/status` - Update user status (Admin only)
 
+### Category Management (Admin Only)
+
+- `POST /api/categories` - Create new category
+- `GET /api/categories` - Get all categories
+- `GET /api/categories/:id` - Get category by ID
+- `PUT /api/categories/:id` - Update category
+- `DELETE /api/categories/:id` - Delete category and its products
+
+### Product Management
+
+- `POST /api/products` - Create new product (Admin only)
+- `GET /api/products` - Get all products (with pagination and category filter)
+- `GET /api/products/:id` - Get product by ID
+- `PUT /api/products/:id` - Update product (Admin only)
+- `DELETE /api/products/:id` - Delete product (Admin only)
+
+### Shopping Basket
+
+- `POST /api/basket` - Add product to basket
+- `GET /api/basket` - Get basket items (with pagination)
+- `DELETE /api/basket/:productId` - Remove product from basket
+
+### Wishlist
+
+- `POST /api/wishlist` - Add product to wishlist
+- `GET /api/wishlist` - Get wishlist items (with pagination)
+- `DELETE /api/wishlist/:productId` - Remove product from wishlist
+
 ## Authentication
 
 The API uses JWT for authentication. Include the token in the Authorization header:
@@ -100,72 +137,55 @@ Error Response:
 
 ## Pagination
 
-For endpoints that support pagination:
-
+For endpoints that support pagination, use the following query parameters:
 ```
-GET /api/users?page=1&limit=10&keyword=searchterm
+?page=1&limit=10
 ```
 
-Response includes pagination info:
+- `page`: Page number (default: 1)
+- `limit`: Items per page (default: 10, max: 50)
+
+Paginated response format:
 ```json
 {
-    "data": [...],
+    "items": [...],
     "pagination": {
-        "currentPage": 1,
-        "totalPages": 5,
-        "totalUsers": 48,
+        "total": 100,
+        "page": 1,
+        "pages": 10,
         "hasNextPage": true,
         "hasPrevPage": false
     }
 }
 ```
 
+## File Upload
+
+Product images are handled using multipart/form-data:
+- `coverImage`: Required main product image
+- `images`: Optional additional product images (max 5)
+
+Uploaded files are stored in the `/uploads` directory and served at `/uploads/filename.ext`.
+
 ## Error Handling
 
-Common HTTP Status Codes:
-- 200: Success
-- 400: Bad Request
-- 401: Unauthorized
-- 403: Forbidden
-- 404: Not Found
+Common error responses:
+- 400: Bad Request - Invalid input
+- 401: Unauthorized - Missing or invalid token
+- 403: Forbidden - Insufficient permissions
+- 404: Not Found - Resource not found
+- 409: Conflict - Duplicate entry (e.g., product already in basket)
 - 500: Internal Server Error
-
-## User Model
-
-```javascript
-{
-    name: String,          // Required
-    surname: String,       // Required
-    username: String,      // Required, Unique
-    email: String,         // Required, Unique
-    password: String,      // Required
-    isAdmin: Boolean,      // Default: false
-    status: String,        // enum: ['active', 'inactive', 'banned']
-    refreshToken: String,  // For token refresh mechanism
-    createdAt: Date,      // Automatically managed
-    updatedAt: Date       // Automatically managed
-}
-```
-
-## Security Features
-
-- Password Hashing (bcryptjs)
-- JWT Authentication
-- Refresh Token Mechanism
-- Role-based Access Control
-- Input Validation
-- Unique Email/Username Validation
 
 ## Development
 
-To contribute to this project:
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+The project uses:
+- Express.js for the web framework
+- MongoDB with Mongoose for the database
+- JWT for authentication
+- Multer for file uploads
+- Swagger UI for API documentation
 
 ## License
 
-ISC 
+MIT

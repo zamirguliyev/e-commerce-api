@@ -28,13 +28,13 @@ const userSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    refreshToken: {
-        type: String,
-        default: null
-    },
     isAdmin: {
         type: Boolean,
         default: false
+    },
+    refreshToken: {
+        type: String,
+        default: null
     },
     status: {
         type: String,
