@@ -3,12 +3,113 @@ const router = express.Router();
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     User:
+ *       type: object
+ *       properties:
+ *         _id:
+ *           type: string
+ *           description: Auto-generated user ID
+ *         name:
+ *           type: string
+ *           description: User's first name
+ *         surname:
+ *           type: string
+ *           description: User's last name
+ *         username:
+ *           type: string
+ *           description: Unique username
+ *         email:
+ *           type: string
+ *           description: Unique email address
+ *         isAdmin:
+ *           type: boolean
+ *           description: Whether user is an admin
+ *         status:
+ *           type: string
+ *           description: User account status
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ */
+
+/**
+ * @swagger
+ * /api/users:
+ *   get:
+ *     summary: Get all users (Admin only)
+ *     description: Retrieve a list of users with pagination and search functionality. Only accessible by admin users.
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 10
+ *         description: Number of users per page
+ *       - in: query
+ *         name: keyword
+ *         schema:
+ *           type: string
+ *         description: Search keyword for username, email, name, or surname
+ *     responses:
+ *       200:
+ *         description: List of users with pagination info
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/User'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     currentPage:
+ *                       type: integer
+ *                       description: Current page number
+ *                     totalPages:
+ *                       type: integer
+ *                       description: Total number of pages
+ *                     totalUsers:
+ *                       type: integer
+ *                       description: Total number of users
+ *                     hasNextPage:
+ *                       type: boolean
+ *                       description: Whether there is a next page
+ *                     hasPrevPage:
+ *                       type: boolean
+ *                       description: Whether there is a previous page
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       403:
+ *         $ref: '#/components/responses/ForbiddenError'
+ */
 
 // Get all users with pagination and search (admin only)
 router.get('/', auth, async (req, res) => {
     try {
         // Check if user is admin
-        const admin = await User.findById(req.user.user.id);
+        const admin = await User.findById(req.user._id);
         if (!admin.isAdmin) {
             return res.status(403).json({ message: 'Access denied. Admin only.' });
         }
@@ -112,7 +213,7 @@ router.get('/', auth, async (req, res) => {
 router.put('/profile', auth, async (req, res) => {
     try {
         const { name, surname, username, email } = req.body;
-        const userId = req.user.user.id;
+        const userId = req.user._id;
 
         // Check if username is taken by another user
         if (username) {
@@ -221,7 +322,7 @@ router.put('/profile', auth, async (req, res) => {
 router.patch('/:id/status', auth, async (req, res) => {
     try {
         // Check if user is admin
-        const admin = await User.findById(req.user.user.id);
+        const admin = await User.findById(req.user._id);
         if (!admin.isAdmin) {
             return res.status(403).json({ message: 'Access denied. Admin only.' });
         }

@@ -9,9 +9,9 @@ const adminAuth = async (req, res, next) => {
         }
 
         const token = authHeader.replace('Bearer ', '');
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
         
-        const user = await User.findOne({ _id: decoded.userId });
+        const user = await User.findOne({ _id: decoded.user.id });
         
         if (!user) {
             return res.status(401).json({ message: 'User not found' });

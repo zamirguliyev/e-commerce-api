@@ -7,13 +7,16 @@ A RESTful API built with Node.js, Express.js, and MongoDB for e-commerce applica
 - User Authentication with JWT
 - Refresh Token Mechanism
 - Role-based Authorization (Admin/User)
-- User Management
-- Product Management with Image Upload
+- User Management with Search & Pagination
+- Product Management with Image Upload (File & Base64)
 - Category Management
 - Shopping Basket
 - Wishlist
 - Swagger API Documentation
 - Pagination and Search Functionality
+- Image Upload Support (JPG, JPEG, PNG, GIF)
+- Base64 Image Support
+- Error Handling and Validation
 
 ## Prerequisites
 
@@ -78,8 +81,13 @@ http://localhost:5000/api-docs
 
 ### User Management
 
-- `GET /api/users` - Get all users (Admin only, with pagination and search)
+- `GET /api/users` - Get all users (Admin only)
+  - Supports pagination with page and limit parameters
+  - Search functionality for username, email, name, and surname
+  - Returns formatted user data without sensitive information
 - `PUT /api/users/profile` - Update user's own profile
+  - Update name, surname, username, and email
+  - Validates for unique username and email
 - `PATCH /api/users/:id/status` - Update user status (Admin only)
 
 ### Category Management (Admin Only)
@@ -88,104 +96,131 @@ http://localhost:5000/api-docs
 - `GET /api/categories` - Get all categories
 - `GET /api/categories/:id` - Get category by ID
 - `PUT /api/categories/:id` - Update category
-- `DELETE /api/categories/:id` - Delete category and its products
+- `DELETE /api/categories/:id` - Delete category
 
 ### Product Management
 
 - `POST /api/products` - Create new product (Admin only)
+  - Supports both multipart/form-data and application/json with base64 images
+  - Accepts JPG, JPEG, PNG, and GIF formats
 - `GET /api/products` - Get all products (with pagination and category filter)
 - `GET /api/products/:id` - Get product by ID
 - `PUT /api/products/:id` - Update product (Admin only)
+  - Supports both file uploads and base64 images
+  - Partial updates available
 - `DELETE /api/products/:id` - Delete product (Admin only)
 
 ### Shopping Basket
 
 - `POST /api/basket` - Add product to basket
-- `GET /api/basket` - Get basket items (with pagination)
-- `DELETE /api/basket/:productId` - Remove product from basket
+- `GET /api/basket` - Get user's basket items
+- `DELETE /api/basket/:id` - Remove item from basket
 
 ### Wishlist
 
 - `POST /api/wishlist` - Add product to wishlist
-- `GET /api/wishlist` - Get wishlist items (with pagination)
-- `DELETE /api/wishlist/:productId` - Remove product from wishlist
+- `GET /api/wishlist` - Get user's wishlist
+- `DELETE /api/wishlist/:id` - Remove item from wishlist
 
-## Authentication
+## User Management
 
-The API uses JWT for authentication. Include the token in the Authorization header:
-```
-Authorization: Bearer your_access_token
-```
+The API provides comprehensive user management features:
 
-## Response Format
+### User Roles
+- **Admin**: Full access to all endpoints and user management
+- **User**: Access to own profile and regular features
 
-Success Response:
-```json
+### User Data
+```javascript
 {
-    "data": {
-        // response data
-    }
+  "id": "user_id",
+  "name": "User Name",
+  "surname": "User Surname",
+  "username": "username",
+  "email": "user@example.com",
+  "isAdmin": false,
+  "status": "active",
+  "createdAt": "2024-01-28T06:57:22.000Z",
+  "updatedAt": "2024-01-28T06:57:22.000Z"
 }
 ```
 
-Error Response:
-```json
-{
-    "message": "Error message"
-}
-```
+### Search and Pagination
+Users can be searched by:
+- Username
+- Email
+- Name
+- Surname
 
-## Pagination
-
-For endpoints that support pagination, use the following query parameters:
-```
-?page=1&limit=10
-```
-
+Pagination parameters:
 - `page`: Page number (default: 1)
 - `limit`: Items per page (default: 10, max: 50)
 
-Paginated response format:
-```json
+## Image Upload
+
+The API supports two methods for handling product images:
+
+1. File Upload (multipart/form-data):
+```javascript
+const formData = new FormData();
+formData.append('name', 'Product Name');
+formData.append('price', '99.99');
+formData.append('coverImage', imageFile);
+formData.append('images', additionalImage1);
+formData.append('images', additionalImage2);
+```
+
+2. Base64 Images (application/json):
+```javascript
 {
-    "items": [...],
-    "pagination": {
-        "total": 100,
-        "page": 1,
-        "pages": 10,
-        "hasNextPage": true,
-        "hasPrevPage": false
-    }
+  "name": "Product Name",
+  "price": 99.99,
+  "coverImage": "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+  "images": [
+    "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
+    "data:image/png;base64,iVBORw0KGgoAAAA..."
+  ]
 }
 ```
 
-## File Upload
-
-Product images are handled using multipart/form-data:
-- `coverImage`: Required main product image
-- `images`: Optional additional product images (max 5)
-
-Uploaded files are stored in the `/uploads` directory and served at `/uploads/filename.ext`.
+Supported image formats:
+- JPG/JPEG
+- PNG
+- GIF
 
 ## Error Handling
 
-Common error responses:
-- 400: Bad Request - Invalid input
-- 401: Unauthorized - Missing or invalid token
-- 403: Forbidden - Insufficient permissions
-- 404: Not Found - Resource not found
-- 409: Conflict - Duplicate entry (e.g., product already in basket)
-- 500: Internal Server Error
+The API uses standard HTTP status codes and returns error messages in the following format:
+```json
+{
+  "message": "Error description"
+}
+```
 
-## Development
+Common status codes:
+- 200: Success
+- 201: Created
+- 400: Bad Request
+- 401: Unauthorized
+- 403: Forbidden
+- 404: Not Found
+- 500: Server Error
 
-The project uses:
-- Express.js for the web framework
-- MongoDB with Mongoose for the database
-- JWT for authentication
-- Multer for file uploads
-- Swagger UI for API documentation
+## Authentication
+
+The API uses JWT (JSON Web Tokens) for authentication. Include the token in the Authorization header:
+```
+Authorization: Bearer <your-token>
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
-MIT
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details

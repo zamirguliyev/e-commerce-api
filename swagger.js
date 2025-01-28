@@ -6,7 +6,7 @@ const options = {
         info: {
             title: 'E-commerce API Documentation',
             version: '1.0.0',
-            description: 'API documentation for the E-commerce application with product and category management',
+            description: 'API documentation for the E-commerce application with user management, product management, categories, basket, and wishlist features',
         },
         servers: [
             {
@@ -36,17 +36,17 @@ const options = {
                 Pagination: {
                     type: 'object',
                     properties: {
-                        total: {
-                            type: 'integer',
-                            description: 'Total number of items'
-                        },
-                        page: {
+                        currentPage: {
                             type: 'integer',
                             description: 'Current page number'
                         },
-                        pages: {
+                        totalPages: {
                             type: 'integer',
                             description: 'Total number of pages'
+                        },
+                        total: {
+                            type: 'integer',
+                            description: 'Total number of items'
                         },
                         hasNextPage: {
                             type: 'boolean',
@@ -61,40 +61,31 @@ const options = {
             },
             responses: {
                 UnauthorizedError: {
-                    description: 'Access token is missing or invalid',
+                    description: 'Authentication is required or token is invalid',
                     content: {
                         'application/json': {
                             schema: {
                                 $ref: '#/components/schemas/Error'
-                            },
-                            example: {
-                                message: 'Unauthorized - Invalid or missing token'
                             }
                         }
                     }
                 },
                 ForbiddenError: {
-                    description: 'Admin access required',
+                    description: 'User does not have required permissions',
                     content: {
                         'application/json': {
                             schema: {
                                 $ref: '#/components/schemas/Error'
-                            },
-                            example: {
-                                message: 'Forbidden - Admin access required'
                             }
                         }
                     }
                 },
                 NotFoundError: {
-                    description: 'Resource not found',
+                    description: 'The requested resource was not found',
                     content: {
                         'application/json': {
                             schema: {
                                 $ref: '#/components/schemas/Error'
-                            },
-                            example: {
-                                message: 'Resource not found'
                             }
                         }
                     }
@@ -107,19 +98,33 @@ const options = {
                 description: 'Authentication endpoints'
             },
             {
+                name: 'Users',
+                description: 'User management endpoints'
+            },
+            {
+                name: 'Products',
+                description: 'Product management endpoints'
+            },
+            {
                 name: 'Categories',
                 description: 'Category management endpoints'
             },
             {
-                name: 'Products',
-                description: 'Product management endpoints with pagination and image upload'
+                name: 'Basket',
+                description: 'Shopping basket endpoints'
+            },
+            {
+                name: 'Wishlist',
+                description: 'User wishlist endpoints'
             }
-        ],
-        security: [{
-            bearerAuth: []
-        }]
+        ]
     },
-    apis: ['./routes/*.js'], // Path to the API routes
+    apis: [
+        './routes/*.js',
+        './models/*.js'
+    ],
 };
 
-module.exports = swaggerJsdoc(options);
+const swaggerSpec = swaggerJsdoc(options);
+
+module.exports = swaggerSpec;

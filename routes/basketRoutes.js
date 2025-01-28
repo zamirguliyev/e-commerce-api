@@ -5,9 +5,37 @@ const auth = require('../middleware/auth');
 
 /**
  * @swagger
+ * components:
+ *   schemas:
+ *     Basket:
+ *       type: object
+ *       required:
+ *         - user
+ *         - product
+ *       properties:
+ *         _id:
+ *           type: string
+ *           description: Auto-generated ID
+ *         user:
+ *           type: string
+ *           description: User ID who owns this basket item
+ *         product:
+ *           type: string
+ *           description: Product ID in the basket
+ *         createdAt:
+ *           type: string
+ *           format: date-time
+ *         updatedAt:
+ *           type: string
+ *           format: date-time
+ */
+
+/**
+ * @swagger
  * /api/basket:
  *   post:
  *     summary: Add product to basket
+ *     description: Add a product to the authenticated user's basket
  *     tags: [Basket]
  *     security:
  *       - bearerAuth: []
@@ -26,11 +54,37 @@ const auth = require('../middleware/auth');
  *     responses:
  *       201:
  *         description: Product added to basket successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Basket'
  *       400:
- *         description: Product already in basket
+ *         description: Product already in basket or invalid request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *   get:
+ *     summary: Get user's basket
+ *     description: Get all products in the authenticated user's basket
+ *     tags: [Basket]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of basket items
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Basket'
  *       401:
  *         $ref: '#/components/responses/UnauthorizedError'
  */
+
 router.post('/', auth, async (req, res) => {
     try {
         const { productId } = req.body;
@@ -57,52 +111,6 @@ router.post('/', auth, async (req, res) => {
     }
 });
 
-/**
- * @swagger
- * /api/basket:
- *   get:
- *     summary: Get user's basket items with pagination
- *     tags: [Basket]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           minimum: 1
- *           default: 1
- *         description: Page number
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           minimum: 1
- *           maximum: 50
- *           default: 10
- *         description: Number of items per page
- *     responses:
- *       200:
- *         description: List of basket items
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 items:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       _id:
- *                         type: string
- *                       product:
- *                         $ref: '#/components/schemas/Product'
- *                 pagination:
- *                   $ref: '#/components/schemas/Pagination'
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- */
 router.get('/', auth, async (req, res) => {
     try {
         const { page = 1, limit = 10 } = req.query;
