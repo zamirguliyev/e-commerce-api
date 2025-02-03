@@ -2,6 +2,41 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const auth = require('../middleware/auth');
+const fs = require('fs');
+const path = require('path');
+
+// Helper function to save base64 image
+const saveBase64Image = (base64String, userId) => {
+    // Create uploads/profiles directory if it doesn't exist
+    const uploadDir = 'uploads/profiles';
+    if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    // Extract image format and base64 data
+    const matches = base64String.match(/^data:image\/([A-Za-z-+\/]+);base64,(.+)$/);
+    
+    if (!matches || matches.length !== 3) {
+        throw new Error('Invalid base64 string');
+    }
+
+    const imageFormat = matches[1];
+    const base64Data = matches[2];
+
+    // Validate image format
+    if (!['jpeg', 'jpg', 'png'].includes(imageFormat.toLowerCase())) {
+        throw new Error('Invalid image format. Only JPEG, JPG, and PNG are allowed');
+    }
+
+    // Generate unique filename
+    const fileName = `profile-${userId}-${Date.now()}.${imageFormat}`;
+    const filePath = path.join(uploadDir, fileName);
+
+    // Save the file
+    fs.writeFileSync(filePath, base64Data, 'base64');
+
+    return `/uploads/profiles/${fileName}`;
+};
 
 /**
  * @swagger
@@ -31,6 +66,9 @@ const auth = require('../middleware/auth');
  *         status:
  *           type: string
  *           description: User account status
+ *         profileImage:
+ *           type: string
+ *           description: User's profile image URL
  *         createdAt:
  *           type: string
  *           format: date-time
@@ -150,6 +188,7 @@ router.get('/', auth, async (req, res) => {
             email: user.email,
             isAdmin: user.isAdmin,
             status: user.status,
+            profileImage: user.profileImage,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt
         }));
@@ -193,6 +232,9 @@ router.get('/', auth, async (req, res) => {
  *                 type: string
  *               email:
  *                 type: string
+ *               profileImage:
+ *                 type: string
+ *                 description: Base64 encoded image string
  *     responses:
  *       200:
  *         description: Profile updated successfully
@@ -212,7 +254,7 @@ router.get('/', auth, async (req, res) => {
 // Update user's own profile
 router.put('/profile', auth, async (req, res) => {
     try {
-        const { name, surname, username, email } = req.body;
+        const { name, surname, username, email, profileImage } = req.body;
         const userId = req.user._id;
 
         // Check if username is taken by another user
@@ -244,6 +286,23 @@ router.put('/profile', auth, async (req, res) => {
         if (username) updateData.username = username;
         if (email) updateData.email = email;
 
+        if (profileImage) {
+            try {
+                // Delete old profile image if exists
+                if (req.user.profileImage) {
+                    const oldImagePath = path.join(__dirname, '..', req.user.profileImage);
+                    if (fs.existsSync(oldImagePath)) {
+                        fs.unlinkSync(oldImagePath);
+                    }
+                }
+
+                const imagePath = saveBase64Image(profileImage, userId);
+                updateData.profileImage = imagePath;
+            } catch (imageError) {
+                return res.status(400).json({ message: 'Invalid image format' });
+            }
+        }
+
         const user = await User.findByIdAndUpdate(
             userId,
             updateData,
@@ -262,6 +321,7 @@ router.put('/profile', auth, async (req, res) => {
             email: user.email,
             isAdmin: user.isAdmin,
             status: user.status,
+            profileImage: user.profileImage,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt
         };
@@ -346,6 +406,7 @@ router.patch('/:id/status', auth, async (req, res) => {
             email: user.email,
             isAdmin: user.isAdmin,
             status: user.status,
+            profileImage: user.profileImage,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt
         };

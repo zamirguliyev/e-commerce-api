@@ -1,35 +1,54 @@
-# E-commerce API
+# E-commerce API with Node.js, Express, and MongoDB
 
-A RESTful API built with Node.js, Express.js, and MongoDB for e-commerce applications.
+A comprehensive e-commerce API built with Node.js, Express, and MongoDB, featuring user authentication, product management, shopping cart functionality, and more.
 
 ## Features
 
-- User Authentication with JWT
-- Refresh Token Mechanism
-- Role-based Authorization (Admin/User)
-- User Management with Search & Pagination
-- Product Management with Image Upload (File & Base64)
-- Category Management
-- Shopping Basket
-- Wishlist
-- Swagger API Documentation
-- Pagination and Search Functionality
-- Image Upload Support (JPG, JPEG, PNG, GIF)
-- Base64 Image Support
-- Error Handling and Validation
+### User Management
+- User registration and authentication
+- JWT-based authentication
+- Role-based access control (Admin and User roles)
+- Profile management with profile picture support (Base64)
+- Password hashing for security
 
-## Prerequisites
+### Product Management
+- CRUD operations for products
+- Product categorization
+- Product search and filtering
+- Image upload support
 
-- Node.js (v14+ recommended)
+### Shopping Features
+- Shopping cart management
+- Wishlist functionality
+- Product ratings and reviews
+- Comment system with pagination
+
+### Admin Features
+- User management
+- Product management
+- Category management
+- Comment moderation
+- Order management
+
+## API Documentation
+
+The API is documented using Swagger UI. Access the documentation at:
+```
+http://localhost:8080/api-docs
+```
+
+## Getting Started
+
+### Prerequisites
+- Node.js (v14 or higher)
 - MongoDB
 - npm or yarn
 
-## Installation
+### Installation
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd <project-directory>
+git clone [repository-url]
 ```
 
 2. Install dependencies:
@@ -37,167 +56,86 @@ cd <project-directory>
 npm install
 ```
 
-3. Create a `.env` file in the root directory and add your configuration:
+3. Create a .env file in the root directory with the following variables:
 ```env
-PORT=5000
-MONGODB_URI=your_mongodb_connection_string
-JWT_SECRET=your_jwt_secret_key
-REFRESH_TOKEN_SECRET=your_refresh_token_secret
+MONGODB_URI=your_mongodb_uri
+JWT_SECRET=your_jwt_secret
+PORT=8080
 ```
 
-4. Create uploads directory:
-```bash
-mkdir uploads
-```
-
-## Running the Application
-
-Development mode:
+4. Start the server:
 ```bash
 npm run dev
-```
-
-Production mode:
-```bash
-npm start
-```
-
-## API Documentation
-
-The API documentation is available through Swagger UI at:
-```
-http://localhost:5000/api-docs
 ```
 
 ## API Endpoints
 
 ### Authentication
+- `POST /api/users/register` - Register new user (supports profile image)
+- `POST /api/users/login` - Login user
+- `PUT /api/users/update-profile` - Update user profile (including profile image)
 
-- `POST /api/auth/register` - Register a new user
-- `POST /api/auth/login` - Login user
-- `POST /api/auth/refresh-token` - Refresh access token
-- `POST /api/auth/logout` - Logout user
-- `GET /api/auth/me` - Get current user profile
-
-### User Management
-
-- `GET /api/users` - Get all users (Admin only)
-  - Supports pagination with page and limit parameters
-  - Search functionality for username, email, name, and surname
-  - Returns formatted user data without sensitive information
-- `PUT /api/users/profile` - Update user's own profile
-  - Update name, surname, username, and email
-  - Validates for unique username and email
-- `PATCH /api/users/:id/status` - Update user status (Admin only)
-
-### Category Management (Admin Only)
-
-- `POST /api/categories` - Create new category
-- `GET /api/categories` - Get all categories
-- `GET /api/categories/:id` - Get category by ID
-- `PUT /api/categories/:id` - Update category
-- `DELETE /api/categories/:id` - Delete category
-
-### Product Management
-
+### Products
+- `GET /api/products` - Get all products
+- `GET /api/products/:id` - Get single product
 - `POST /api/products` - Create new product (Admin only)
-  - Supports both multipart/form-data and application/json with base64 images
-  - Accepts JPG, JPEG, PNG, and GIF formats
-- `GET /api/products` - Get all products (with pagination and category filter)
-- `GET /api/products/:id` - Get product by ID
 - `PUT /api/products/:id` - Update product (Admin only)
-  - Supports both file uploads and base64 images
-  - Partial updates available
 - `DELETE /api/products/:id` - Delete product (Admin only)
 
-### Shopping Basket
+### Comments
+- `POST /api/comments/:productId` - Add comment to product
+- `GET /api/comments/:productId` - Get product comments (with pagination)
+- `PUT /api/comments/:commentId` - Update comment (owner only)
+- `DELETE /api/comments/:commentId` - Delete comment (owner or admin)
 
-- `POST /api/basket` - Add product to basket
-- `GET /api/basket` - Get user's basket items
-- `DELETE /api/basket/:id` - Remove item from basket
+### Cart
+- `GET /api/basket` - Get user's cart
+- `POST /api/basket/add` - Add item to cart
+- `PUT /api/basket/update` - Update cart item
+- `DELETE /api/basket/remove` - Remove item from cart
 
 ### Wishlist
-
-- `POST /api/wishlist` - Add product to wishlist
 - `GET /api/wishlist` - Get user's wishlist
-- `DELETE /api/wishlist/:id` - Remove item from wishlist
+- `POST /api/wishlist/add` - Add item to wishlist
+- `DELETE /api/wishlist/remove` - Remove item from wishlist
 
-## User Management
+## Profile Image Upload
 
-The API provides comprehensive user management features:
-
-### User Roles
-- **Admin**: Full access to all endpoints and user management
-- **User**: Access to own profile and regular features
-
-### User Data
-```javascript
-{
-  "id": "user_id",
-  "name": "User Name",
-  "surname": "User Surname",
-  "username": "username",
-  "email": "user@example.com",
-  "isAdmin": false,
-  "status": "active",
-  "createdAt": "2024-01-28T06:57:22.000Z",
-  "updatedAt": "2024-01-28T06:57:22.000Z"
-}
+### Base64 Image Format
+Profile images should be sent as base64 strings in the following format:
 ```
-
-### Search and Pagination
-Users can be searched by:
-- Username
-- Email
-- Name
-- Surname
-
-Pagination parameters:
-- `page`: Page number (default: 1)
-- `limit`: Items per page (default: 10, max: 50)
-
-## Image Upload
-
-The API supports two methods for handling product images:
-
-1. File Upload (multipart/form-data):
-```javascript
-const formData = new FormData();
-formData.append('name', 'Product Name');
-formData.append('price', '99.99');
-formData.append('coverImage', imageFile);
-formData.append('images', additionalImage1);
-formData.append('images', additionalImage2);
-```
-
-2. Base64 Images (application/json):
-```javascript
-{
-  "name": "Product Name",
-  "price": 99.99,
-  "coverImage": "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
-  "images": [
-    "data:image/jpeg;base64,/9j/4AAQSkZJRg...",
-    "data:image/png;base64,iVBORw0KGgoAAAA..."
-  ]
-}
+data:image/jpeg;base64,/9j/4AAQSkZJRg...
 ```
 
 Supported image formats:
-- JPG/JPEG
+- JPEG/JPG
 - PNG
-- GIF
 
-## Error Handling
-
-The API uses standard HTTP status codes and returns error messages in the following format:
+Example request for updating profile image:
 ```json
 {
-  "message": "Error description"
+  "name": "User Name",
+  "profileImage": "data:image/jpeg;base64,/9j/4AAQSkZJRg..."
 }
 ```
 
-Common status codes:
+## Comment System
+
+Comments support pagination and include user information. Example response:
+```json
+{
+  "comments": [...],
+  "currentPage": 1,
+  "totalPages": 5,
+  "totalComments": 50,
+  "hasNextPage": true,
+  "hasPrevPage": false
+}
+```
+
+## Error Handling
+
+The API uses standard HTTP status codes:
 - 200: Success
 - 201: Created
 - 400: Bad Request
@@ -206,21 +144,19 @@ Common status codes:
 - 404: Not Found
 - 500: Server Error
 
-## Authentication
+## Security Features
 
-The API uses JWT (JSON Web Tokens) for authentication. Include the token in the Authorization header:
-```
-Authorization: Bearer <your-token>
-```
+- JWT authentication
+- Password hashing with bcrypt
+- Role-based access control
+- Input validation
+- File upload restrictions
+- Rate limiting (coming soon)
 
 ## Contributing
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
