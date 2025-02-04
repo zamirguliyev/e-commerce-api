@@ -74,240 +74,55 @@ const handleFileUpload = (req, res, next) => {
     next();
 };
 
-/**
- * @swagger
- * components:
- *   schemas:
- *     Product:
- *       type: object
- *       required:
- *         - name
- *         - price
- *         - category
- *       properties:
- *         _id:
- *           type: string
- *           description: Auto-generated ID
- *         name:
- *           type: string
- *           description: Product name
- *         description:
- *           type: string
- *           description: Product description
- *         price:
- *           type: number
- *           description: Product price
- *         category:
- *           type: string
- *           description: Category ID
- *         coverImage:
- *           type: string
- *           description: Cover image path or base64 string
- *         images:
- *           type: array
- *           items:
- *             type: string
- *           description: Additional product images (paths or base64 strings)
- *         createdAt:
- *           type: string
- *           format: date-time
- *         updatedAt:
- *           type: string
- *           format: date-time
- *       example:
- *         name: Smartphone
- *         description: Latest model smartphone
- *         price: 999.99
- *         category: 60d725b3e6c8b32b3c7c7b1e
- *         coverImage: uploads/cover-123.jpg
- *         images: [uploads/image1.jpg, uploads/image2.jpg]
- */
-
-/**
- * @swagger
- * /api/products:
- *   post:
- *     summary: Create a new product
- *     description: Create a new product with images. Requires admin access. Accepts both multipart/form-data and application/json with base64 images.
- *     tags: [Products]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             required:
- *               - name
- *               - price
- *               - category
- *             properties:
- *               name:
- *                 type: string
- *               price:
- *                 type: number
- *               category:
- *                 type: string
- *               description:
- *                 type: string
- *               coverImage:
- *                 type: string
- *                 format: binary
- *               images:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: binary
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - name
- *               - price
- *               - category
- *             properties:
- *               name:
- *                 type: string
- *               price:
- *                 type: number
- *               category:
- *                 type: string
- *               description:
- *                 type: string
- *               coverImage:
- *                 type: string
- *                 description: Base64 encoded image string (data:image/format;base64,...)
- *               images:
- *                 type: array
- *                 items:
- *                   type: string
- *                   description: Base64 encoded image strings
- *     responses:
- *       201:
- *         description: Product created successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Product'
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- *       403:
- *         $ref: '#/components/responses/ForbiddenError'
- */
-
-/**
- * @swagger
- * /api/products:
- *   get:
- *     summary: Get products with pagination and optional category filter
- *     description: Retrieve a paginated list of products. Can be filtered by category ID.
- *     tags: [Products]
- *     parameters:
- *       - in: query
- *         name: categoryId
- *         schema:
- *           type: string
- *         description: Category ID to filter products
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           minimum: 1
- *           default: 1
- *         description: Page number (starts from 1)
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           minimum: 1
- *           maximum: 50
- *           default: 10
- *         description: Number of items per page (max 50)
- *     responses:
- *       200:
- *         description: Paginated list of products
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 products:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/Product'
- *                 pagination:
- *                   $ref: '#/components/schemas/Pagination'
- *       500:
- *         description: Server error
- */
 router.get('/', async (req, res) => {
     try {
-        const { categoryId, page = 1, limit = 10 } = req.query;
-        const pageNumber = parseInt(page);
-        const limitNumber = Math.min(parseInt(limit), 50); // Cap at 50 items per page
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const keyword = req.query.keyword || '';
+        const sort = req.query.sort || ''; // price:asc or price:desc
         
-        let query = {};
-        if (categoryId) {
-            query.category = categoryId;
+        // Build query
+        const query = {};
+        if (keyword) {
+            query.name = { $regex: keyword, $options: 'i' }; // case-insensitive search
         }
 
-        // Get total count for pagination
-        const total = await Product.countDocuments(query);
-        
-        // Calculate pagination values
-        const totalPages = Math.ceil(total / limitNumber);
-        const skip = (pageNumber - 1) * limitNumber;
-        
-        // Get products for current page
-        const products = await Product.find(query)
-            .populate('category')
-            .sort({ createdAt: -1 }) // Sort by newest first
-            .skip(skip)
-            .limit(limitNumber);
+        // Build sort object
+        let sortOptions = {};
+        if (sort) {
+            if (sort === 'asc') {
+                sortOptions.price = 1;
+            } else if (sort === 'desc') {
+                sortOptions.price = -1;
+            }
+        }
 
-        // Prepare pagination info
-        const pagination = {
-            total,
-            page: pageNumber,
-            pages: totalPages,
-            hasNextPage: pageNumber < totalPages,
-            hasPrevPage: pageNumber > 1
-        };
+        const skip = (page - 1) * limit;
+
+        // Get total count for pagination
+        const totalProducts = await Product.countDocuments(query);
+        const totalPages = Math.ceil(totalProducts / limit);
+
+        // Get products with pagination, search and sort
+        const products = await Product.find(query)
+            .sort(sortOptions)
+            .skip(skip)
+            .limit(limit)
+            .populate('category', 'name');
 
         res.json({
             products,
-            pagination
+            currentPage: page,
+            totalPages,
+            totalProducts,
+            hasNextPage: page < totalPages,
+            hasPrevPage: page > 1
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 });
 
-/**
- * @swagger
- * /api/products/{id}:
- *   get:
- *     summary: Get a product by ID
- *     description: Retrieve detailed information about a specific product
- *     tags: [Products]
- *     parameters:
- *       - in: path
- *         name: id
- *         schema:
- *           type: string
- *         required: true
- *         description: Product ID
- *     responses:
- *       200:
- *         description: Product details
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Product'
- *       404:
- *         $ref: '#/components/responses/NotFoundError'
- */
 router.get('/:id', async (req, res) => {
     try {
         const product = await Product.findById(req.params.id).populate('category');
@@ -320,88 +135,33 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-/**
- * @swagger
- * /api/products/{id}:
- *   put:
- *     summary: Update a product
- *     description: Update a product's information and images. Requires admin access. Accepts both multipart/form-data and application/json with base64 images.
- *     tags: [Products]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         schema:
- *           type: string
- *         required: true
- *         description: Product ID
- *     requestBody:
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *                 description: Product name
- *               description:
- *                 type: string
- *                 description: Product description
- *               price:
- *                 type: number
- *                 description: Product price
- *               category:
- *                 type: string
- *                 description: Category ID
- *               coverImage:
- *                 type: string
- *                 format: binary
- *                 description: Main product image
- *               images:
- *                 type: array
- *                 items:
- *                   type: string
- *                   format: binary
- *                 description: Additional product images (max 5)
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *                 description: Product name
- *               description:
- *                 type: string
- *                 description: Product description
- *               price:
- *                 type: number
- *                 description: Product price
- *               category:
- *                 type: string
- *                 description: Category ID
- *               coverImage:
- *                 type: string
- *                 description: Base64 encoded image string (data:image/format;base64,...)
- *               images:
- *                 type: array
- *                 items:
- *                   type: string
- *                   description: Base64 encoded image strings
- *     responses:
- *       200:
- *         description: Product updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Product'
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- *       403:
- *         $ref: '#/components/responses/ForbiddenError'
- *       404:
- *         $ref: '#/components/responses/NotFoundError'
- */
+router.post('/', adminAuth, handleFileUpload, async (req, res) => {
+    try {
+        const product = new Product({
+            ...req.body,
+            coverImage: req.files && req.files['coverImage'] ? req.files['coverImage'][0].path : '',
+            images: req.files && req.files['images'] ? req.files['images'].map(file => file.path) : []
+        });
+
+        if (req.body.coverImage && req.body.coverImage.startsWith('data:image')) {
+            product.coverImage = saveBase64Image(req.body.coverImage);
+        }
+        
+        if (Array.isArray(req.body.images)) {
+            product.images = await Promise.all(
+                req.body.images
+                    .filter(img => img && img.startsWith('data:image'))
+                    .map(img => saveBase64Image(img))
+            );
+        }
+
+        const savedProduct = await product.save();
+        res.status(201).json(savedProduct);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+});
+
 router.put('/:id', adminAuth, handleFileUpload, async (req, res) => {
     try {
         const product = await Product.findById(req.params.id);
@@ -442,40 +202,6 @@ router.put('/:id', adminAuth, handleFileUpload, async (req, res) => {
     }
 });
 
-/**
- * @swagger
- * /api/products/{id}:
- *   delete:
- *     summary: Delete a product
- *     description: Delete a product and its associated images. Requires admin access.
- *     tags: [Products]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         schema:
- *           type: string
- *         required: true
- *         description: Product ID
- *     responses:
- *       200:
- *         description: Product deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Product deleted successfully
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- *       403:
- *         $ref: '#/components/responses/ForbiddenError'
- *       404:
- *         $ref: '#/components/responses/NotFoundError'
- */
 router.delete('/:id', adminAuth, async (req, res) => {
     try {
         const product = await Product.findById(req.params.id);

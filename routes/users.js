@@ -1,9 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const User = require('../models/User');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const auth = require('../middleware/auth');
+const adminAuth = require('../middleware/adminAuth');
+const User = require('../models/User');
 const fs = require('fs');
 const path = require('path');
+const { sendWelcomeEmail, sendPasswordResetEmail } = require('../config/emailConfig');
 
 // Helper function to save base64 image
 const saveBase64Image = (base64String, userId) => {
@@ -37,111 +41,6 @@ const saveBase64Image = (base64String, userId) => {
 
     return `/uploads/profiles/${fileName}`;
 };
-
-/**
- * @swagger
- * components:
- *   schemas:
- *     User:
- *       type: object
- *       properties:
- *         _id:
- *           type: string
- *           description: Auto-generated user ID
- *         name:
- *           type: string
- *           description: User's first name
- *         surname:
- *           type: string
- *           description: User's last name
- *         username:
- *           type: string
- *           description: Unique username
- *         email:
- *           type: string
- *           description: Unique email address
- *         isAdmin:
- *           type: boolean
- *           description: Whether user is an admin
- *         status:
- *           type: string
- *           description: User account status
- *         profileImage:
- *           type: string
- *           description: User's profile image URL
- *         createdAt:
- *           type: string
- *           format: date-time
- *         updatedAt:
- *           type: string
- *           format: date-time
- */
-
-/**
- * @swagger
- * /api/users:
- *   get:
- *     summary: Get all users (Admin only)
- *     description: Retrieve a list of users with pagination and search functionality. Only accessible by admin users.
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           minimum: 1
- *           default: 1
- *         description: Page number for pagination
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           minimum: 1
- *           maximum: 50
- *           default: 10
- *         description: Number of users per page
- *       - in: query
- *         name: keyword
- *         schema:
- *           type: string
- *         description: Search keyword for username, email, name, or surname
- *     responses:
- *       200:
- *         description: List of users with pagination info
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/User'
- *                 pagination:
- *                   type: object
- *                   properties:
- *                     currentPage:
- *                       type: integer
- *                       description: Current page number
- *                     totalPages:
- *                       type: integer
- *                       description: Total number of pages
- *                     totalUsers:
- *                       type: integer
- *                       description: Total number of users
- *                     hasNextPage:
- *                       type: boolean
- *                       description: Whether there is a next page
- *                     hasPrevPage:
- *                       type: boolean
- *                       description: Whether there is a previous page
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- *       403:
- *         $ref: '#/components/responses/ForbiddenError'
- */
 
 // Get all users with pagination and search (admin only)
 router.get('/', auth, async (req, res) => {
@@ -209,213 +108,297 @@ router.get('/', auth, async (req, res) => {
     }
 });
 
-/**
- * @swagger
- * /api/users/profile:
- *   put:
- *     summary: Update user's own profile
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *               surname:
- *                 type: string
- *               username:
- *                 type: string
- *               email:
- *                 type: string
- *               profileImage:
- *                 type: string
- *                 description: Base64 encoded image string
- *     responses:
- *       200:
- *         description: Profile updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 data:
- *                   $ref: '#/components/schemas/User'
- *       400:
- *         description: Username or email already exists
- *       401:
- *         description: Unauthorized
- */
+// Get user profile
+router.get('/profile', auth, async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id).select('-password');
+        res.json(user);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
 
 // Update user's own profile
 router.put('/profile', auth, async (req, res) => {
     try {
-        const { name, surname, username, email, profileImage } = req.body;
-        const userId = req.user._id;
-
-        // Check if username is taken by another user
-        if (username) {
-            const existingUsername = await User.findOne({ 
-                username, 
-                _id: { $ne: userId } 
-            });
-            if (existingUsername) {
-                return res.status(400).json({ message: 'Username already exists' });
-            }
-        }
-
-        // Check if email is taken by another user
-        if (email) {
-            const existingEmail = await User.findOne({ 
-                email, 
-                _id: { $ne: userId } 
-            });
-            if (existingEmail) {
-                return res.status(400).json({ message: 'Email already exists' });
-            }
-        }
-
-        // Update user profile
-        const updateData = {};
-        if (name) updateData.name = name;
-        if (surname) updateData.surname = surname;
-        if (username) updateData.username = username;
-        if (email) updateData.email = email;
-
-        if (profileImage) {
-            try {
-                // Delete old profile image if exists
-                if (req.user.profileImage) {
-                    const oldImagePath = path.join(__dirname, '..', req.user.profileImage);
-                    if (fs.existsSync(oldImagePath)) {
-                        fs.unlinkSync(oldImagePath);
-                    }
+        const user = await User.findById(req.user._id);
+        
+        // Handle profile image update
+        if (req.body.profileImage) {
+            // Delete old profile image if exists
+            if (user.profileImage) {
+                const oldImagePath = path.join(__dirname, '..', user.profileImage);
+                if (fs.existsSync(oldImagePath)) {
+                    fs.unlinkSync(oldImagePath);
                 }
+            }
 
-                const imagePath = saveBase64Image(profileImage, userId);
-                updateData.profileImage = imagePath;
+            try {
+                const imagePath = saveBase64Image(req.body.profileImage, req.user._id);
+                user.profileImage = imagePath;
             } catch (imageError) {
-                return res.status(400).json({ message: 'Invalid image format' });
+                return res.status(400).json({ message: 'Invalid image format. Image must be in base64 format.' });
             }
         }
 
-        const user = await User.findByIdAndUpdate(
-            userId,
-            updateData,
-            { new: true }
-        ).select('-password -refreshToken');
+        // Update other fields
+        const updates = ['name', 'surname', 'email'];
+        updates.forEach(update => {
+            if (req.body[update]) {
+                user[update] = req.body[update];
+            }
+        });
 
+        await user.save();
+        res.json(user);
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+});
+
+// Get all users (admin only)
+router.get('/users', adminAuth, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const total = await User.countDocuments();
+        const users = await User.find()
+            .select('-password')
+            .skip(skip)
+            .limit(limit)
+            .sort({ createdAt: -1 });
+
+        res.json({
+            users,
+            pagination: {
+                total,
+                page,
+                pages: Math.ceil(total / limit)
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Get user by ID (admin only)
+router.get('/users/:id', adminAuth, async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id).select('-password');
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.json(user);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Update user (admin only)
+router.put('/users/:id', adminAuth, async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        const userData = {
-            id: user._id,
-            name: user.name,
-            surname: user.surname,
-            username: user.username,
-            email: user.email,
-            isAdmin: user.isAdmin,
-            status: user.status,
-            profileImage: user.profileImage,
-            createdAt: user.createdAt,
-            updatedAt: user.updatedAt
-        };
+        const updates = ['name', 'surname', 'email'];
+        updates.forEach(update => {
+            if (req.body[update]) {
+                user[update] = req.body[update];
+            }
+        });
 
-        res.json({ data: userData });
+        await user.save();
+        res.json(user);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
+        res.status(400).json({ message: error.message });
     }
 });
 
-/**
- * @swagger
- * /api/users/{id}/status:
- *   patch:
- *     summary: Update user status (admin only)
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: User ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - status
- *             properties:
- *               status:
- *                 type: string
- *                 enum: [active, inactive, banned]
- *     responses:
- *       200:
- *         description: User status updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 data:
- *                   $ref: '#/components/schemas/User'
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Access denied. Admin only.
- *       404:
- *         description: User not found
- */
-
 // Update user status (admin only)
-router.patch('/:id/status', auth, async (req, res) => {
+router.patch('/users/:id/status', adminAuth, async (req, res) => {
     try {
-        // Check if user is admin
-        const admin = await User.findById(req.user._id);
-        if (!admin.isAdmin) {
-            return res.status(403).json({ message: 'Access denied. Admin only.' });
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
         }
 
         const { status } = req.body;
-        const user = await User.findByIdAndUpdate(
-            req.params.id,
-            { status },
-            { new: true }
-        ).select('-password -refreshToken');
+        if (!['active', 'inactive', 'banned'].includes(status)) {
+            return res.status(400).json({ message: 'Invalid status value' });
+        }
 
+        user.status = status;
+        await user.save();
+
+        res.json(user);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Delete user (admin only)
+router.delete('/users/:id', adminAuth, async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        const userData = {
-            id: user._id,
-            name: user.name,
-            surname: user.surname,
-            username: user.username,
-            email: user.email,
-            isAdmin: user.isAdmin,
-            status: user.status,
-            profileImage: user.profileImage,
-            createdAt: user.createdAt,
-            updatedAt: user.updatedAt
-        };
-
-        res.json({ data: userData });
+        await user.remove();
+        res.json({ message: 'User deleted successfully' });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: error.message });
     }
 });
 
-module.exports = router; 
+// Change password route
+router.post('/change-password', auth, async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        const userId = req.user.id;
+
+        // Get user from database
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: 'İstifadəçi tapılmadı' });
+        }
+
+        // Check if current password is correct
+        const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+        if (!isPasswordValid) {
+            return res.status(400).json({ message: 'Cari şifrə yanlışdır' });
+        }
+
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        user.password = hashedPassword;
+        await user.save();
+
+        res.status(200).json({ message: 'Şifrə uğurla yeniləndi' });
+    } catch (error) {
+        console.error('Change password error:', error);
+        res.status(500).json({ message: 'Şifrə yeniləmə zamanı xəta baş verdi' });
+    }
+});
+
+// Register user
+router.post('/register', async (req, res) => {
+    try {
+        const { name, surname, email, password, profileImage } = req.body;
+
+        // Check if user already exists
+        let user = await User.findOne({ email });
+        if (user) {
+            return res.status(400).json({ message: 'User already exists' });
+        }
+
+        // Create new user
+        user = new User({
+            name,
+            surname,
+            email,
+            password
+        });
+
+        // Handle profile image if provided
+        if (profileImage) {
+            const imagePath = saveBase64Image(profileImage, 'profiles');
+            user.profileImage = imagePath;
+        }
+
+        // Hash password
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(password, salt);
+
+        // Save user
+        await user.save();
+
+        // Send welcome email
+        await sendWelcomeEmail(email, name);
+
+        // Create token
+        const token = jwt.sign(
+            { id: user.id },
+            process.env.JWT_SECRET,
+            { expiresIn: '1d' }
+        );
+
+        res.status(201).json({
+            token,
+            user: {
+                id: user.id,
+                name: user.name,
+                surname: user.surname,
+                email: user.email,
+                profileImage: user.profileImage
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Request password reset
+router.post('/forgot-password', async (req, res) => {
+    try {
+        const { email } = req.body;
+        
+        // Find user
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Generate reset code
+        const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const resetExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+        // Save reset code and expiration
+        user.resetPasswordCode = resetCode;
+        user.resetPasswordExpires = resetExpires;
+        await user.save();
+
+        // Send reset email
+        await sendPasswordResetEmail(email, resetCode);
+
+        res.json({ message: 'Password reset code has been sent to your email' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Reset password with code
+router.post('/reset-password', async (req, res) => {
+    try {
+        const { email, code, newPassword } = req.body;
+        const user = await User.findOne({
+            email,
+            resetPasswordCode: code,
+            resetPasswordExpires: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            return res.status(400).json({ message: 'Invalid or expired reset code' });
+        }
+
+        // Hash new password
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+
+        // Clear reset fields
+        user.resetPasswordCode = null;
+        user.resetPasswordExpires = null;
+
+        await user.save();
+
+        res.json({ message: 'Password has been reset successfully' });
+    } catch (error) {
+        res.status(400).json({ message: error.message });
+    }
+});
+
+module.exports = router;

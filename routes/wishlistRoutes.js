@@ -3,34 +3,6 @@ const router = express.Router();
 const Wishlist = require('../models/Wishlist');
 const auth = require('../middleware/auth');
 
-/**
- * @swagger
- * /api/wishlist:
- *   post:
- *     summary: Add product to wishlist
- *     tags: [Wishlist]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - productId
- *             properties:
- *               productId:
- *                 type: string
- *                 description: ID of the product to add to wishlist
- *     responses:
- *       201:
- *         description: Product added to wishlist successfully
- *       400:
- *         description: Product already in wishlist
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- */
 router.post('/', auth, async (req, res) => {
     try {
         const { productId } = req.body;
@@ -57,52 +29,6 @@ router.post('/', auth, async (req, res) => {
     }
 });
 
-/**
- * @swagger
- * /api/wishlist:
- *   get:
- *     summary: Get user's wishlist items with pagination
- *     tags: [Wishlist]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           minimum: 1
- *           default: 1
- *         description: Page number
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           minimum: 1
- *           maximum: 50
- *           default: 10
- *         description: Number of items per page
- *     responses:
- *       200:
- *         description: List of wishlist items
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 items:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       _id:
- *                         type: string
- *                       product:
- *                         $ref: '#/components/schemas/Product'
- *                 pagination:
- *                   $ref: '#/components/schemas/Pagination'
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- */
 router.get('/', auth, async (req, res) => {
     try {
         const { page = 1, limit = 10 } = req.query;
@@ -134,29 +60,6 @@ router.get('/', auth, async (req, res) => {
     }
 });
 
-/**
- * @swagger
- * /api/wishlist/{productId}:
- *   delete:
- *     summary: Remove product from wishlist
- *     tags: [Wishlist]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: productId
- *         schema:
- *           type: string
- *         required: true
- *         description: Product ID to remove from wishlist
- *     responses:
- *       200:
- *         description: Product removed from wishlist successfully
- *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
- *       404:
- *         $ref: '#/components/responses/NotFoundError'
- */
 router.delete('/:productId', auth, async (req, res) => {
     try {
         const result = await Wishlist.findOneAndDelete({

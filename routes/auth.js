@@ -5,96 +5,6 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const auth = require('../middleware/auth');
 
-/**
- * @swagger
- * components:
- *   schemas:
- *     User:
- *       type: object
- *       required:
- *         - name
- *         - surname
- *         - username
- *         - email
- *         - password
- *       properties:
- *         id:
- *           type: string
- *           description: Auto-generated ID of the user
- *         name:
- *           type: string
- *           description: User's first name
- *         surname:
- *           type: string
- *           description: User's last name
- *         username:
- *           type: string
- *           description: User's unique username
- *         email:
- *           type: string
- *           description: User's unique email address
- *         isAdmin:
- *           type: boolean
- *           description: Whether the user is an admin
- *         status:
- *           type: string
- *           enum: [active, inactive, banned]
- *           description: User's account status
- *         createdAt:
- *           type: string
- *           format: date-time
- *         updatedAt:
- *           type: string
- *           format: date-time
- */
-
-/**
- * @swagger
- * /api/auth/register:
- *   post:
- *     summary: Register a new user
- *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - name
- *               - surname
- *               - username
- *               - email
- *               - password
- *             properties:
- *               name:
- *                 type: string
- *               surname:
- *                 type: string
- *               username:
- *                 type: string
- *               email:
- *                 type: string
- *               password:
- *                 type: string
- *     responses:
- *       200:
- *         description: User registered successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 accessToken:
- *                   type: string
- *                 refreshToken:
- *                   type: string
- *                 data:
- *                   $ref: '#/components/schemas/User'
- *       400:
- *         description: User already exists
- */
-
 // Generate tokens
 const generateTokens = (userId) => {
     const accessToken = jwt.sign(
@@ -165,44 +75,6 @@ router.post('/register', async (req, res) => {
     }
 });
 
-/**
- * @swagger
- * /api/auth/login:
- *   post:
- *     summary: Login user
- *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - email
- *               - password
- *             properties:
- *               email:
- *                 type: string
- *               password:
- *                 type: string
- *     responses:
- *       200:
- *         description: Login successful
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 accessToken:
- *                   type: string
- *                 refreshToken:
- *                   type: string
- *                 data:
- *                   $ref: '#/components/schemas/User'
- *       400:
- *         description: Invalid credentials
- */
-
 // Login
 router.post('/login', async (req, res) => {
     try {
@@ -249,41 +121,6 @@ router.post('/login', async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 });
-
-/**
- * @swagger
- * /api/auth/refresh-token:
- *   post:
- *     summary: Refresh access token
- *     tags: [Auth]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - refreshToken
- *             properties:
- *               refreshToken:
- *                 type: string
- *     responses:
- *       200:
- *         description: New tokens generated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 accessToken:
- *                   type: string
- *                 refreshToken:
- *                   type: string
- *                 data:
- *                   $ref: '#/components/schemas/User'
- *       401:
- *         description: Invalid refresh token
- */
 
 // Refresh Token
 router.post('/refresh-token', async (req, res) => {
@@ -343,21 +180,6 @@ router.post('/refresh-token', async (req, res) => {
     }
 });
 
-/**
- * @swagger
- * /api/auth/logout:
- *   post:
- *     summary: Logout user
- *     tags: [Auth]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Logged out successfully
- *       401:
- *         description: Unauthorized
- */
-
 // Logout
 router.post('/logout', auth, async (req, res) => {
     try {
@@ -369,28 +191,6 @@ router.post('/logout', auth, async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 });
-
-/**
- * @swagger
- * /api/auth/me:
- *   get:
- *     summary: Get current user profile
- *     tags: [Auth]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: User profile retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 data:
- *                   $ref: '#/components/schemas/User'
- *       401:
- *         description: Unauthorized
- */
 
 // Get user profile (/me endpoint)
 router.get('/me', auth, async (req, res) => {

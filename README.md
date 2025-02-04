@@ -1,54 +1,50 @@
-# E-commerce API with Node.js, Express, and MongoDB
+# E-Commerce Backend API
 
-A comprehensive e-commerce API built with Node.js, Express, and MongoDB, featuring user authentication, product management, shopping cart functionality, and more.
+A robust Node.js-based e-commerce backend API with features like user authentication, product management, wishlist, and comments.
 
 ## Features
 
-### User Management
-- User registration and authentication
-- JWT-based authentication
-- Role-based access control (Admin and User roles)
-- Profile management with profile picture support (Base64)
-- Password hashing for security
+- **User Management**
+  - Registration and Authentication
+  - JWT-based Authorization
+  - Profile Management with Image Upload
+  - Password Reset Functionality
 
-### Product Management
-- CRUD operations for products
-- Product categorization
-- Product search and filtering
-- Image upload support
+- **Product Management**
+  - CRUD Operations
+  - Image Upload Support
+  - Pagination and Filtering
+  - Search Functionality
 
-### Shopping Features
-- Shopping cart management
-- Wishlist functionality
-- Product ratings and reviews
-- Comment system with pagination
+- **Wishlist**
+  - Add/Remove Products
+  - View User's Wishlist
+  - Pagination Support
 
-### Admin Features
-- User management
-- Product management
-- Category management
-- Comment moderation
-- Order management
+- **Comments**
+  - Add/Edit/Delete Comments on Products
+  - View Product Comments
+  - Pagination Support
 
-## API Documentation
+## Tech Stack
 
-The API is documented using Swagger UI. Access the documentation at:
-```
-http://localhost:8080/api-docs
-```
+- Node.js
+- Express.js
+- MongoDB
+- JWT Authentication
+- Swagger UI for API Documentation
 
-## Getting Started
+## Prerequisites
 
-### Prerequisites
 - Node.js (v14 or higher)
 - MongoDB
 - npm or yarn
 
-### Installation
+## Installation
 
 1. Clone the repository:
 ```bash
-git clone [repository-url]
+git clone https://github.com/yourusername/e-commerce-api.git
 ```
 
 2. Install dependencies:
@@ -58,84 +54,93 @@ npm install
 
 3. Create a .env file in the root directory with the following variables:
 ```env
-MONGODB_URI=your_mongodb_uri
+PORT=3000
+MONGODB_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret
-PORT=8080
+JWT_REFRESH_SECRET=your_refresh_token_secret
 ```
 
 4. Start the server:
 ```bash
-npm run dev
+npm start
 ```
 
-## API Endpoints
+## API Documentation
 
-### Authentication
-- `POST /api/users/register` - Register new user (supports profile image)
-- `POST /api/users/login` - Login user
-- `PUT /api/users/update-profile` - Update user profile (including profile image)
+The API is documented using Swagger UI. After starting the server, visit:
+```
+http://localhost:3000/api-docs
+```
 
-### Products
-- `GET /api/products` - Get all products
-- `GET /api/products/:id` - Get single product
-- `POST /api/products` - Create new product (Admin only)
-- `PUT /api/products/:id` - Update product (Admin only)
-- `DELETE /api/products/:id` - Delete product (Admin only)
+### Main Endpoints
 
-### Comments
-- `POST /api/comments/:productId` - Add comment to product
-- `GET /api/comments/:productId` - Get product comments (with pagination)
-- `PUT /api/comments/:commentId` - Update comment (owner only)
-- `DELETE /api/comments/:commentId` - Delete comment (owner or admin)
+#### Authentication
+- POST /api/auth/register - Register new user
+- POST /api/auth/login - Login user
+- POST /api/auth/refresh-token - Get new access token
+- POST /api/auth/logout - Logout user
 
-### Cart
-- `GET /api/basket` - Get user's cart
-- `POST /api/basket/add` - Add item to cart
-- `PUT /api/basket/update` - Update cart item
-- `DELETE /api/basket/remove` - Remove item from cart
+#### Users
+- GET /api/users/profile - Get user profile
+- PUT /api/users/profile - Update user profile
+- POST /api/users/change-password - Change password
+- POST /api/users/forgot-password - Request password reset
+- POST /api/users/reset-password - Reset password with code
+
+#### Products
+- GET /api/products - Get all products
+- POST /api/products - Create new product (Admin)
+- GET /api/products/:id - Get product by ID
+- PUT /api/products/:id - Update product (Admin)
+- DELETE /api/products/:id - Delete product (Admin)
+- POST /api/products/:id/comments - Add comment to product
+- GET /api/products/:id/comments - Get product comments
+
+#### Wishlist
+- GET /api/wishlist - Get user's wishlist
+- POST /api/wishlist/:productId - Add product to wishlist
+- DELETE /api/wishlist/:productId - Remove product from wishlist
+
+## Recent Updates
+
+### User Management
+- Profile image now accepts only base64 format
+- Removed role management for simplified user structure
+- Enhanced password reset functionality with email verification
+- Improved profile update validation
+
+### Product Management
+- Added image upload support with multiple formats
+- Enhanced search functionality
+- Improved pagination and filtering options
+- Added sorting capabilities
 
 ### Wishlist
-- `GET /api/wishlist` - Get user's wishlist
-- `POST /api/wishlist/add` - Add item to wishlist
-- `DELETE /api/wishlist/remove` - Remove item from wishlist
+- Implemented pagination for wishlist items
+- Added product details in wishlist responses
+- Improved error handling
 
-## Profile Image Upload
+### Comments
+- Added comment editing functionality
+- Implemented comment moderation features
+- Enhanced comment listing with pagination
 
-### Base64 Image Format
-Profile images should be sent as base64 strings in the following format:
-```
-data:image/jpeg;base64,/9j/4AAQSkZJRg...
-```
-
-Supported image formats:
-- JPEG/JPG
-- PNG
-
-Example request for updating profile image:
-```json
-{
-  "name": "User Name",
-  "profileImage": "data:image/jpeg;base64,/9j/4AAQSkZJRg..."
-}
-```
-
-## Comment System
-
-Comments support pagination and include user information. Example response:
-```json
-{
-  "comments": [...],
-  "currentPage": 1,
-  "totalPages": 5,
-  "totalComments": 50,
-  "hasNextPage": true,
-  "hasPrevPage": false
-}
-```
+### API Documentation
+- Updated Swagger documentation for all endpoints
+- Added request/response examples
+- Improved error response documentation
+- Added authentication details in Swagger UI
 
 ## Error Handling
 
-The API uses standard HTTP status codes:
+The API uses standard HTTP status codes and returns error messages in the following format:
+```json
+{
+    "message": "Error description"
+}
+```
+
+Common status codes:
 - 200: Success
 - 201: Created
 - 400: Bad Request
@@ -146,17 +151,30 @@ The API uses standard HTTP status codes:
 
 ## Security Features
 
-- JWT authentication
-- Password hashing with bcrypt
-- Role-based access control
+- JWT-based authentication
+- Password hashing
+- Rate limiting
 - Input validation
-- File upload restrictions
-- Rate limiting (coming soon)
+- XSS protection
+- CORS configuration
+
+## Best Practices
+
+- Use environment variables for sensitive data
+- Keep JWT tokens secure
+- Send base64 format for image uploads
+- Follow REST API conventions
+- Use proper HTTP methods
+- Implement proper error handling
 
 ## Contributing
 
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a new Pull Request
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
+This project is licensed under the MIT License - see the LICENSE file for details.

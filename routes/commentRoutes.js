@@ -4,45 +4,6 @@ const Comment = require('../models/comment');
 const auth = require('../middleware/auth');
 const isAdmin = require('../middleware/isAdmin');
 
-/**
- * @swagger
- * /api/comments/{productId}:
- *   post:
- *     summary: Create a new comment for a product
- *     tags: [Comments]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: productId
- *         required: true
- *         schema:
- *           type: string
- *         description: Product ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - comment
- *               - rating
- *             properties:
- *               comment:
- *                 type: string
- *               rating:
- *                 type: number
- *                 minimum: 1
- *                 maximum: 5
- *     responses:
- *       201:
- *         description: Comment created successfully
- *       400:
- *         description: Invalid rating value
- *       401:
- *         description: Unauthorized
- */
 router.post('/:productId', auth, async (req, res) => {
     try {
         const { comment, rating } = req.body;
@@ -65,37 +26,6 @@ router.post('/:productId', auth, async (req, res) => {
     }
 });
 
-/**
- * @swagger
- * /api/comments/{productId}:
- *   get:
- *     summary: Get all comments for a product with pagination
- *     tags: [Comments]
- *     parameters:
- *       - in: path
- *         name: productId
- *         required: true
- *         schema:
- *           type: string
- *         description: Product ID
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: Page number
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *         description: Number of items per page
- *     responses:
- *       200:
- *         description: List of comments with pagination info
- *       500:
- *         description: Server error
- */
 router.get('/:productId', async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1;
@@ -106,7 +36,16 @@ router.get('/:productId', async (req, res) => {
         const totalPages = Math.ceil(totalComments / limit);
         
         const comments = await Comment.find({ product: req.params.productId })
-            .populate('user', 'name email')
+            .populate({
+                path: 'user',
+                select: 'name surname email profileImage',
+                transform: doc => ({
+                    _id: doc._id,
+                    fullName: `${doc.name} ${doc.surname}`.trim(),
+                    email: doc.email,
+                    profileImage: doc.profileImage
+                })
+            })
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit);
@@ -124,44 +63,6 @@ router.get('/:productId', async (req, res) => {
     }
 });
 
-/**
- * @swagger
- * /api/comments/{commentId}:
- *   put:
- *     summary: Update a comment
- *     tags: [Comments]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: commentId
- *         required: true
- *         schema:
- *           type: string
- *         description: Comment ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               comment:
- *                 type: string
- *               rating:
- *                 type: number
- *                 minimum: 1
- *                 maximum: 5
- *     responses:
- *       200:
- *         description: Comment updated successfully
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Not the comment owner
- *       404:
- *         description: Comment not found
- */
 router.put('/:commentId', auth, async (req, res) => {
     try {
         const comment = await Comment.findById(req.params.commentId);
@@ -190,31 +91,6 @@ router.put('/:commentId', auth, async (req, res) => {
     }
 });
 
-/**
- * @swagger
- * /api/comments/{commentId}:
- *   delete:
- *     summary: Delete a comment
- *     tags: [Comments]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: commentId
- *         required: true
- *         schema:
- *           type: string
- *         description: Comment ID
- *     responses:
- *       200:
- *         description: Comment deleted successfully
- *       401:
- *         description: Unauthorized
- *       403:
- *         description: Not the comment owner or admin
- *       404:
- *         description: Comment not found
- */
 router.delete('/:commentId', auth, async (req, res) => {
     try {
         const comment = await Comment.findById(req.params.commentId);
