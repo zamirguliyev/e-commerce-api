@@ -44,7 +44,7 @@ A robust Node.js-based e-commerce backend API with features like user authentica
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/e-commerce-api.git
+git clone https://github.com/zamirguliyev/e-commerce-api.git
 ```
 
 2. Install dependencies:
